@@ -62,6 +62,7 @@ The API supports a hiring workflow where accepting an application creates a corr
 * Request body size limits
 * Input validation
 * Parameterized SQL queries
+* Prisma ORM for application data access
 * Password hashing
 * JWT authentication
 * Safe error responses
@@ -92,6 +93,8 @@ Tests cover areas such as:
 | Express.js        | Web framework                 |
 | PostgreSQL        | Relational database           |
 | `pg`              | PostgreSQL driver             |
+| Prisma ORM        | Schema, migrations, and database queries |
+| `@prisma/adapter-pg` | PostgreSQL driver adapter for Prisma Client |
 | JWT               | Authentication                |
 | bcrypt            | Password hashing              |
 | express-validator | Request validation            |
@@ -131,6 +134,14 @@ Service
   ▼
 PostgreSQL
 ```
+
+### Prisma and Database Access
+
+The Prisma data model is defined in `prisma/schema.prisma`, with versioned SQL migrations in `prisma/migrations/`. The Prisma 7 CLI gets its schema, migrations directory, and database URL from `prisma7.config.ts`.
+
+`src/config/db.js` creates a Prisma Client using `PrismaPg` from `@prisma/adapter-pg`. The same module creates a `pg` pool, which the hiring service uses to run its multi-step acceptance transaction. Both connections use `DATABASE_URL`.
+
+Most services use Prisma model operations such as `findMany`, `findUnique`, `create`, `update`, and `delete`. Relations and constraints, including the unique `(userId, jobId)` application constraint, are declared in the Prisma schema and applied through migrations.
 
 ### Project Structure
 
@@ -438,11 +449,7 @@ Create a `.env` file:
 ```env
 PORT=3000
 
-DB_USER=postgres
-DB_HOST=localhost
-DB_NAME=job_board
-DB_PASSWORD=your_password
-DB_PORT=5432
+DATABASE_URL="postgresql://postgres:your_password@localhost:5432/job_board?schema=public"
 
 JWT_SECRET=your_jwt_secret
 ```
@@ -457,7 +464,12 @@ Create a PostgreSQL database:
 CREATE DATABASE job_board;
 ```
 
-Then create the required tables using the project's SQL schema.
+Apply the checked-in migrations and generate Prisma Client:
+
+```bash
+npx prisma migrate deploy --config prisma7.config.ts
+npx prisma generate --config prisma7.config.ts
+```
 
 ### 5. Start the server
 
@@ -535,18 +547,15 @@ Password hash
 PostgreSQL
 ```
 
-### SQL Injection Protection
+### Database Queries
 
-Database queries use parameterized queries:
+Most database operations use Prisma Client. The hiring acceptance service uses parameterized `pg` queries inside a transaction:
 
 ```js
-pool.query(
-    'SELECT * FROM users WHERE email = $1',
-    [email]
-);
+client.query('UPDATE "Application" SET status = $1 WHERE id = $2', [status, applicationId]);
 ```
 
-User input is never directly concatenated into SQL.
+User input is not concatenated into SQL statements.
 
 ### Authorization
 
@@ -580,7 +589,8 @@ This project was built to develop practical knowledge of:
 * Middleware
 * MVC/layered architecture
 * PostgreSQL
-* SQL
+* Prisma ORM and schema migrations
+* PostgreSQL and parameterized SQL
 * Authentication
 * Authorization
 * JWT
@@ -602,7 +612,6 @@ Planned improvements include:
 * [ ] Refresh token authentication
 * [ ] API versioning
 * [ ] Swagger/OpenAPI documentation
-* [ ] Prisma ORM integration
 * [ ] File/CV uploads
 * [ ] Redis caching
 * [ ] Background jobs

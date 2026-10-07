@@ -2,9 +2,9 @@ import express from 'express'
 import {registerUserController,deleteUserByIdController,loginUser,getAllUsersController,findUserByIdController} from '../controllers/userControllers.js'
 import {getJobsByCompanyIdController,updateJobController} from '../controllers/jobControllers.js'
 import authenticate from '../middlewares/auth.js'
+import {registerUserValidation} from '../middlewares/userValidation.js'
 import authorize from '../middlewares/authorize.js'
 import rateLimit from 'express-rate-limit'
-//import { loginLimiter } from '../server.js'
 const route = express.Router()
 
 const loginLimiter = rateLimit({
@@ -21,7 +21,7 @@ route.put('/jobs/:id',authenticate,updateJobController)
 route.get('/jobs',authenticate,getJobsByCompanyIdController)
 
 
-route.post('/register',registerUserController)
+route.post('/register',registerUserValidation,registerUserController)
 route.post('/login',loginLimiter,loginUser)
 route.delete('/:id',authenticate,authorize('admin'),deleteUserByIdController)
 
